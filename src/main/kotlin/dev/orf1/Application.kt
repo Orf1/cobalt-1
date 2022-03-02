@@ -2,8 +2,16 @@ package dev.orf1
 
 
 fun main() {
-    println("Please choose one of the following options: \n1 - Client\n2 - Server\n3 - Exit")
-    when (readLine()) {
+    var selection = ""
+    while(selection != "1" && selection != "2" && selection != "3") {
+        if (selection != "") {
+            println("Invalid option. Please type either \"1\", \"2\", or \"3\".")
+        }
+        print("Please choose one of the following options: \n1 - Client\n2 - Server\n3 - Exit\n-> ")
+        selection = readLine().toString()
+    }
+
+    when (selection) {
         "1" -> {
             println("Starting Cobalt Client.")
             runClient()
@@ -12,11 +20,10 @@ fun main() {
             println("Starting Cobalt Server.")
             runServer()
         }
-        else -> {
-            println("Selected mode is not yet supported.")
+        "3" -> {
+            println("Program exiting.")
         }
     }
-    println("Program exiting.")
 }
 
 fun runServer() {

@@ -1,8 +1,12 @@
 package dev.orf1
 
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
@@ -15,6 +19,10 @@ internal class Server(host: String, port: Int) {
     init {
         server = embeddedServer(Netty, port = port, host = host) {
             install(WebSockets)
+            install(ContentNegotiation) {
+                json()
+            }
+
             routing {
                 webSocket("/chat") {
                     println("New websocket connection.")
@@ -32,6 +40,19 @@ internal class Server(host: String, port: Int) {
                         e.printStackTrace()
                     }
                 }
+
+                post("/login") {
+                    val incoming = call.receive<LoginRequest>()
+                    println("Received login request: $incoming")
+                    val outgoing = AuthenticationResponse("Hey", "12tx7182b9")
+                    println("Responding with: $outgoing")
+                    call.respond(outgoing)
+                }
+
+                post("/register") {
+                    val packet = call.receive<RegisterRequest>()
+
+                }
             }
         }
         start()
@@ -40,4 +61,6 @@ internal class Server(host: String, port: Int) {
     private fun start() {
         server.start(wait = true)
     }
+
+
 }
