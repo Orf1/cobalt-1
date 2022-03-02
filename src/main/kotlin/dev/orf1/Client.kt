@@ -18,12 +18,12 @@ import java.net.ConnectException
 import java.util.*
 
 
-
 internal class Client(private val host: String, private val port: Int) {
     private lateinit var client: HttpClient
     private var connected: Boolean = false
     private var authenticated: Boolean = false
     private lateinit var profile: Profile
+    private val encryptionManager = EncryptionManager()
 
     init {
         println("Starting setup stage.")
@@ -82,65 +82,98 @@ internal class Client(private val host: String, private val port: Int) {
     }
 
 
-
     private fun authenticate() {
-        var selection = ""
-        while(selection != "1" && selection != "2") {
-            if (selection != "") {
-                println("Invalid option. Please type either \"1\" or \"2\".")
-            }
-            print("How would you like to authenticate?\n1 - Login\n2 - Register\n-> ")
-             selection = readLine().toString()
-        }
-
-        when(selection) {
-            "1" -> {
-                login()
-            }
-
-            "2" -> {
-                register()
-            }
-        }
-    }
-
-    private fun login() {
         runBlocking {
             while (!authenticated) {
-                print("Please enter your email: -> ")
-                val email = readLine()
-                print("Please enter your password: -> ")
-                val password = readLine()
-                if (!email.isNullOrEmpty() && !password.isNullOrEmpty()) {
-                    try {
-                        val response: HttpResponse = client.post("http://127.0.0.1:8080/login") {
-                            contentType(ContentType.Application.Json)
-                            setBody(LoginRequest(email, password))
-                        }
-                        if(response.status == HttpStatusCode.OK) {
-                            val packet = response.body<Profile>()
-                            println("Profile received from server: $packet")
-                            authenticated = true
-                        } else {
-                            println("Something went wrong, please try again.")
-                        }
-                    } catch (e:ClientRequestException) {
-                        println("Invalid username or password, please try again.")
-                        e.printStackTrace()
-                    } catch (e: ConnectException) {
-                        println("Server unavailable, please try again.")
-                    } catch (e: Throwable) {
-                        println("Something went wrong, please try again.")
-                        e.printStackTrace()
+                var selection = ""
+                while (selection != "1" && selection != "2") {
+                    if (selection != "") {
+                        println("Invalid option. Please type either \"1\" or \"2\".")
                     }
-                } else {
-                    println("Email or password cannot be empty.")
+                    print("How would you like to authenticate?\n1 - Login\n2 - Register\n-> ")
+                    selection = readLine().toString()
+                }
+                when (selection) {
+                    "1" -> {
+                        login()
+                    }
+                    "2" -> {
+                        register()
+                    }
                 }
             }
         }
     }
 
-    private fun register() {
+    private suspend fun login() {
+            print("Please enter your email: -> ")
+            val email = readLine()
+            print("Please enter your password: -> ")
+            val password = readLine()
 
+            if (email.isNullOrEmpty() || password.isNullOrEmpty()) {
+                println("Email or password can not be empty!")
+                return
+            }
+
+            try {
+                val response: HttpResponse = client.post("http://127.0.0.1:8080/login") {
+                    contentType(ContentType.Application.Json)
+                    setBody(LoginRequest(email, password))
+                }
+                if (response.status == HttpStatusCode.OK) {
+                    val authResponse = response.body<AuthResponse>()
+                    profile = Profile(email, encryptionManager.hash(password), authResponse.username, authResponse.token)
+                    authenticated = true
+                    println("AuthResponse received from server: $authResponse")
+                    println("Successfully logged in.")
+                } else {
+                    println("Something went wrong, please try again.")
+                }
+            } catch (e: ClientRequestException) {
+                println("Invalid username or password, please try again.")
+            } catch (e: ConnectException) {
+                println("Server unavailable, please try again.")
+            } catch (e: Throwable) {
+                println("Something went wrong, please try again.")
+                e.printStackTrace()
+            }
+    }
+
+    private suspend fun register() {
+        print("Please enter your email: -> ")
+        val email = readLine()
+        print("Please enter your password: -> ")
+        val password = readLine()
+        print("Please enter your username: -> ")
+        val username = readLine()
+
+        if (email.isNullOrEmpty() || password.isNullOrEmpty() || username.isNullOrEmpty()) {
+            println("Email, password or username can not be empty!")
+            return
+        }
+
+        try {
+            val response: HttpResponse = client.post("http://127.0.0.1:8080/register") {
+                contentType(ContentType.Application.Json)
+                setBody(RegisterRequest(email, password, username))
+            }
+            if (response.status == HttpStatusCode.OK) {
+                val authResponse = response.body<AuthResponse>()
+                profile = Profile(email, encryptionManager.hash(password), authResponse.username, authResponse.token)
+                authenticated = true
+                println("AuthResponse received from server: $authResponse")
+                println("Successfully registered.")
+            } else {
+                println("Something went wrong, please try again.")
+            }
+        } catch (e: ClientRequestException) {
+            println("Email or username already registered.")
+        } catch (e: ConnectException) {
+            println("Server unavailable, please try again.")
+        } catch (e: Throwable) {
+            println("Something went wrong, please try again.")
+            e.printStackTrace()
+        }
     }
 }

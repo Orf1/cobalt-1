@@ -8,6 +8,7 @@ plugins {
     application
     kotlin("jvm") version "1.6.10"
     kotlin("plugin.serialization") version "1.6.10"
+    id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
 group = "dev.orf1"
@@ -28,6 +29,7 @@ dependencies {
     implementation("io.ktor:ktor-server-websockets:$ktor_version")
     implementation("io.ktor:ktor-server-auth:$ktor_version")
     implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-server-status-pages:$ktor_version")
 
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
@@ -42,20 +44,18 @@ dependencies {
     implementation("com.github.ajalt.clikt:clikt:$clikt_version")
 }
 
-val fatJar = task("fatJar", type = Jar::class) {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    baseName = "${project.name}-fat"
-    manifest {
-        attributes["Implementation-Title"] = "Cobalt"
-        attributes["Implementation-Version"] = version
-        attributes["Main-Class"] = "dev.orf1.ApplicationKt"
+tasks{
+    shadowJar {
+        manifest {
+            attributes(Pair("Implementation-Title", "Cobalt"))
+            attributes(Pair("Implementation-Version", archiveVersion))
+            attributes(Pair("Main-Class", "dev.orf1.ApplicationKt"))
+        }
     }
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
-    with(tasks.jar.get() as CopySpec)
 }
 
 tasks {
     "build" {
-        dependsOn(fatJar)
+        dependsOn(shadowJar)
     }
 }
