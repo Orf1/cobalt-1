@@ -18,7 +18,6 @@ import java.net.ConnectException
 import java.util.*
 
 
-data class Profile(val email: String, val password: String, val username: String, val token: String)
 
 internal class Client(private val host: String, private val port: Int) {
     private lateinit var client: HttpClient
@@ -31,7 +30,7 @@ internal class Client(private val host: String, private val port: Int) {
         setup()
         println("Starting authentication stage.")
         authenticate()
-        println("Starting onnection stage.")
+        println("Starting connection stage.")
         connect()
     }
 
@@ -119,8 +118,8 @@ internal class Client(private val host: String, private val port: Int) {
                             setBody(LoginRequest(email, password))
                         }
                         if(response.status == HttpStatusCode.OK) {
-                            val packet = response.body<AuthenticationResponse>()
-                            profile = Profile(email, password, packet.username, packet.token)
+                            val packet = response.body<Profile>()
+                            println("Profile received from server: $packet")
                             authenticated = true
                         } else {
                             println("Something went wrong, please try again.")
