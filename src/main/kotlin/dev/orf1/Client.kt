@@ -4,10 +4,14 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.auth.*
+import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.client.utils.EmptyContent.contentType
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
@@ -16,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.net.ConnectException
 import java.util.*
+import javax.naming.AuthenticationException
 
 
 internal class Client(private val host: String, private val port: Int) {
@@ -29,31 +34,55 @@ internal class Client(private val host: String, private val port: Int) {
         println("Starting setup stage.")
         setup()
         println("Starting authentication stage.")
-        authenticate()
+        //authenticate()
         println("Starting connection stage.")
         connect()
     }
 
     private fun setup() {
         client = HttpClient(CIO) {
-            install(WebSockets)
+
+            install(WebSockets) {
+                contentConverter = KotlinxWebsocketSerializationConverter(Json)
+
+            }
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
-                    isLenient = true
+                    isLenient = false
                 })
+            }
+            install(Auth) {
+                digest {
+                    credentials {
+                        DigestAuthCredentials(username = "username", password = "password")
+                    }
+                    realm = "Access to the '/socket' path"
+                }
             }
         }
     }
 
     private fun connect() {
+//        if (!authenticated) {
+//            authenticate()
+//        }
+
+        val auth = client.plugin(Auth)
+        auth.providers.removeAt(0)
+        auth.digest {
+            credentials {
+                DigestAuthCredentials(username = "jetbrains", password = "foobar")
+            }
+            realm = "Access to the '/socket' path"
+        }
+
         runBlocking {
             while (true) {
                 println("Trying to connect to server.")
                 try {
-                    client.webSocket(method = HttpMethod.Get, host = host, port = port, path = "/chat") {
+                    client.webSocket(method = HttpMethod.Get, host = host, port = port, path = "/socket") {
                         connected = true
-                        println("Established connection to server.")
                         while (true) {
                             val othersMessage = incoming.receive() as? Frame.Text
                             println("[Server] " + othersMessage?.readText())
@@ -68,13 +97,18 @@ internal class Client(private val host: String, private val port: Int) {
                     connected = false
                     println("Unable to connect to server, retrying in 5 seconds.")
                     delay(5000)
+                } catch(e: ClientRequestException) {
+                    connected = false
+                    println("Authentication failed, retrying in 5 seconds.")
+                    delay(5000)
                 } catch (e: ClosedReceiveChannelException) {
                     connected = false
                     println("Server closed connection, trying to reconnect in 5 seconds.")
-                    delay(5000)
+                        delay(5000)
                 } catch (e: Throwable) {
                     connected = false
                     println("Disconnected due to an error, trying to reconnect in 5 seconds.")
+                    e.printStackTrace()
                     delay(5000)
                 }
             }
@@ -117,7 +151,7 @@ internal class Client(private val host: String, private val port: Int) {
             }
 
             try {
-                val response: HttpResponse = client.post("http://127.0.0.1:8080/login") {
+                val response: HttpResponse = client.post("http://$host:$port/login") {
                     contentType(ContentType.Application.Json)
                     setBody(LoginRequest(email, password))
                 }
@@ -154,7 +188,7 @@ internal class Client(private val host: String, private val port: Int) {
         }
 
         try {
-            val response: HttpResponse = client.post("http://127.0.0.1:8080/register") {
+            val response: HttpResponse = client.post("http://$host:$port/register") {
                 contentType(ContentType.Application.Json)
                 setBody(RegisterRequest(email, password, username))
             }

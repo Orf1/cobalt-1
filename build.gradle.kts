@@ -42,6 +42,8 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("com.github.kotlin-inquirer:kotlin-inquirer:$inquirer_version")
     implementation("com.github.ajalt.clikt:clikt:$clikt_version")
+    implementation("io.ktor:ktor-server-auth-jvm:2.0.0-beta-1")
+    implementation("io.ktor:ktor-server-core-jvm:2.0.0-beta-1")
 }
 
 tasks{
